@@ -1,0 +1,99 @@
+package com.example.todo_app_backend.config;
+
+import com.example.todo_app_backend.exception.TokenValidationException;
+import com.example.todo_app_backend.security.JwtService;
+import io.jsonwebtoken.JwtException;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
+
+import java.io.IOException;
+@Slf4j
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+    private final HandlerExceptionResolver handlerExceptionResolver;
+
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService, HandlerExceptionResolver handlerExceptionResolver) {
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
+        this.handlerExceptionResolver = handlerExceptionResolver;
+    }
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        final String authHeader = request.getHeader("Authorization");
+        if(authHeader == null || !authHeader.startsWith("Bearer ")){
+            filterChain.doFilter(request,response);
+            return;
+        }
+        try{
+            final String jwt = authHeader.substring(7);
+            if (jwt.isBlank()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            if(!jwtService.isAccessToken(jwt)){
+                throw new TokenValidationException("Access token required");
+            }
+
+            final String email = jwtService.extractEmailFromToken(jwt);
+
+            Authentication currentAuth = SecurityContextHolder.getContext().getAuthentication();
+
+            if(email != null && currentAuth == null){
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                if (!userDetails.isEnabled()) {
+                    throw new IllegalStateException("User account is disabled");
+                }
+
+                if (!userDetails.isAccountNonExpired()) {
+                    throw new IllegalStateException("User account has expired");
+                }
+
+                if (!userDetails.isAccountNonLocked()) {
+                    throw new IllegalStateException("User account is locked");
+                }
+
+                if (!userDetails.isCredentialsNonExpired()) {
+                    throw new IllegalStateException("User credentials have expired");
+                }
+                if(jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+
+                    log.debug("User authenticated: {}", email);
+                }
+            }
+            filterChain.doFilter(request,response);
+
+        }catch (JwtException | AuthenticationException e) {
+            log.debug("JWT authentication failed: {}", e.getMessage());
+            handlerExceptionResolver.resolveException(request, response, null, e);
+        }
+        catch (Exception e){
+            log.error("User authentication error:{}",e.getMessage());
+            handlerExceptionResolver.resolveException(request, response, null, e);
+
+        }
+
+    }
+}
