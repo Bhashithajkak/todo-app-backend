@@ -48,5 +48,5 @@ application-*.yml
 *.swp
 *.swo
 
-# Database files
-./mysql_data:/var/lib/mysql
+# MySQL Docker data
+mysql_data/

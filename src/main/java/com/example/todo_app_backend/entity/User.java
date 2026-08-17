@@ -44,12 +44,12 @@ public class User implements UserDetails {
 
     @Override
     public @Nullable String getPassword() {
-        return null;
+        return password;
     }
 
     @Override
     public String getUsername() {
-        return null;
+        return email;
     }
 
     @Override
