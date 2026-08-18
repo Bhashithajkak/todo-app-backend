@@ -51,15 +51,14 @@ public class SecurityConfig {
 
             // Swagger / OpenAPI only for development period
             "/swagger-ui/**",
-            "/v3/api-docs/**",
-
-            // User management
-            "/api/users/**",
-
+            "/v3/api-docs/**"
     };
 
     private static final String[] PRIVATE_URLS = {
-
+            // User management
+            "/api/users/**",
+            // Task management
+            "/api/tasks/**"
     };
 
     @Bean

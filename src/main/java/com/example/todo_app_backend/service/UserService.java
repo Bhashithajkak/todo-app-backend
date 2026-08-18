@@ -25,11 +25,21 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public User createUser(User user){
-        boolean isEmailExist = userRepository.existsByEmail(user.getEmail());
-        if(isEmailExist){
-            throw new DuplicateEmailException("Already a user with email:"+user.getEmail());
+    public User createUser(RegistrationRequest registrationRequest){
+        if(!registrationRequest.password().equals(registrationRequest.confirmPassword()) ){
+            throw new PasswordMismatchException("Password does not match");
         }
+        boolean isEmailExist = userRepository.existsByEmail(registrationRequest.email());
+
+        if(isEmailExist){
+            throw new DuplicateEmailException("Already a user with email:" + registrationRequest.email()
+            );
+        }
+        User user = new User();
+        user.setName(registrationRequest.name());
+        user.setEmail(registrationRequest.email());
+        user.setRole(RoleType.USER);
+        user.setPassword(passwordEncoder.encode(registrationRequest.password()));
         return userRepository.save(user);
     }
 
@@ -51,23 +61,10 @@ public class UserService {
         );
         return mapToUserResponse(user);
     }
-
-    public UserResponse createUser(RegistrationRequest registrationRequest){
-        boolean isEmailExist = userRepository.existsByEmail(registrationRequest.email());
-
-        if(isEmailExist){
-            throw new DuplicateEmailException("Already a user with email:" + registrationRequest.email()
-            );
-        }
-        if(!registrationRequest.password().equals(registrationRequest.confirmPassword()) ){
-            throw new PasswordMismatchException("Password does not match");
-        }
-        User user = new User();
-        user.setName(registrationRequest.name());
-        user.setEmail(registrationRequest.email());
-        user.setRole(RoleType.USER);
-        user.setPassword(passwordEncoder.encode(registrationRequest.password()));
-        return mapToUserResponse(userRepository.save(user));
+    public User getUserEntityByEmail(String email){
+        return userRepository.findByEmail(email).orElseThrow(
+                ()-> new UserNotFoundException("User not found with email:"+ email)
+        );
     }
 
     //  Update user details except email and role

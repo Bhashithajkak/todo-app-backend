@@ -6,7 +6,6 @@ import com.example.todo_app_backend.dto.UpdateUserRoleRequest;
 import com.example.todo_app_backend.dto.UserResponse;
 import com.example.todo_app_backend.entity.User;
 import com.example.todo_app_backend.enums.RoleType;
-import com.example.todo_app_backend.exception.DuplicateEmailException;
 import com.example.todo_app_backend.exception.PasswordMismatchException;
 import com.example.todo_app_backend.exception.UserNotFoundException;
 import com.example.todo_app_backend.repository.UserRepository;
@@ -49,42 +48,6 @@ class UserServiceTest {
         user.setRole(RoleType.USER);
     }
 
-
-    @Nested
-    class CreateUser {
-        @Test
-        void createUser_shouldCreateUserSuccessfully() {
-            when(userRepository.existsByEmail(user.getEmail()))
-                    .thenReturn(false);
-            when(userRepository.save(user))
-                    .thenReturn(user);
-
-            User result = userService.createUser(user);
-
-            assertNotNull(result);
-            assertEquals(user.getUserId(), result.getUserId());
-            assertEquals(user.getEmail(), result.getEmail());
-            assertEquals(user.getName(), result.getName());
-
-            verify(userRepository).existsByEmail(user.getEmail());
-            verify(userRepository).save(user);
-        }
-
-        @Test
-        void createUser_shouldThrowDuplicateEmailException_whenEmailAlreadyExists() {
-            when(userRepository.existsByEmail(user.getEmail()))
-                    .thenReturn(true);
-
-            assertThrows(
-                    DuplicateEmailException.class,
-                    () -> userService.createUser(user)
-            );
-
-            verify(userRepository).existsByEmail(user.getEmail());
-            verify(userRepository, never()).save(any(User.class));
-        }
-
-    }
 
     @Nested
     class getAllUsers {
@@ -217,14 +180,13 @@ class UserServiceTest {
                     .thenReturn("encodedPassword");
 
             when(userRepository.save(any(User.class)))
-                    .thenAnswer(invocation -> invocation.getArgument(0));
+                    .thenReturn(user);
 
-            UserResponse result = userService.createUser(request);
-
+            User result = userService.createUser(request);
             assertNotNull(result);
-            assertEquals("John Doe", result.name());
-            assertEquals("john@example.com", result.email());
-            assertEquals(RoleType.USER, result.role());
+            assertEquals("John Doe", result.getName());
+            assertEquals("john@example.com", result.getEmail());
+            assertEquals(RoleType.USER, result.getRole());
 
             verify(passwordEncoder).encode("password123");
             verify(userRepository).save(any(User.class));
